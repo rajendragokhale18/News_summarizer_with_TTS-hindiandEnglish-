@@ -3,15 +3,14 @@ import nltk
 from nltk.sentiment import SentimentIntensityAnalyzer
 from collections import Counter
 import pyttsx3
+from gtts import gTTS
 import os
-import torch
-from transformers import AutoModelForSpeechSeq2Seq, AutoProcessor, pipeline
 from news_scraper import get_news  # Import the scraper
 
-# Download VADER lexicon (if not already downloaded)
+# ✅ Download VADER lexicon (if not already downloaded)
 nltk.download("vader_lexicon")
 
-# Initialize Sentiment Analyzer
+# ✅ Initialize Sentiment Analyzer
 sia = SentimentIntensityAnalyzer()
 
 def analyze_sentiment(text):
@@ -39,20 +38,6 @@ def comparative_analysis(news_list):
 
         sentiment_counts = Counter([article["sentiment"] for article in news_list])
 
-        # Extracting unique words from titles as topics
-        topic_keywords = {}
-        for article in news_list:
-            words = article["title"].split()
-            topic_keywords[article["title"]] = words  
-
-        # Identifying common & unique topics
-        common_topics = set.intersection(*map(set, topic_keywords.values()))
-        unique_topics = {
-            title: list(set(words) - common_topics)
-            for title, words in topic_keywords.items()
-        }
-
-        # Final sentiment summary
         sentiment_summary = {
             "Sentiment Distribution": dict(sentiment_counts),
             "Coverage Differences": [
@@ -63,11 +48,7 @@ def comparative_analysis(news_list):
                 for i, a1 in enumerate(news_list)
                 for j, a2 in enumerate(news_list)
                 if i < j and a1["sentiment"] != a2["sentiment"]
-            ],
-            "Topic Overlap": {
-                "Common Topics": list(common_topics),
-                "Unique Topics": unique_topics,
-            },
+            ]
         }
 
         return sentiment_summary
@@ -76,7 +57,7 @@ def comparative_analysis(news_list):
         return {"error": f"Exception in comparative analysis: {str(e)}"}
 
 def text_to_speech(text, lang="en"):
-    """Dual TTS: Uses `pyttsx3` for English and `Vosk` for Hindi."""
+    """Uses `pyttsx3` for English and `gTTS` for Hindi."""
     try:
         if not text:
             return "Error: No text provided for speech conversion."
@@ -84,35 +65,22 @@ def text_to_speech(text, lang="en"):
         filename = f"speech_output_{lang}.mp3"
 
         if lang == "en":
-            # ✅ Use `pyttsx3` for English
+            # ✅ Use `pyttsx3` for English (Offline)
             engine = pyttsx3.init()
-            voices = engine.getProperty('voices')
-
-            for voice in voices:
-                if "english" in voice.name.lower():
-                    engine.setProperty('voice', voice.id)
-                    break
-
-            engine.setProperty("rate", 180)  # Adjust speech speed
+            engine.setProperty("rate", 180)
             engine.save_to_file(text, filename)
             engine.runAndWait()
-
         else:
-            # ✅ Use `Vosk` for Hindi
-            model = AutoModelForSpeechSeq2Seq.from_pretrained("suno/bark")
-            processor = AutoProcessor.from_pretrained("suno/bark")
-            text_to_speech_pipeline = pipeline("text-to-speech", model=model, processor=processor)
-
-            # Generate Hindi speech
-            speech = text_to_speech_pipeline(text, return_tensors="pt")
-            torchaudio.save(filename, speech["audio"], 24000)
+            # ✅ Use `gTTS` for Hindi (Online)
+            tts = gTTS(text=text, lang="hi", slow=False)
+            tts.save(filename)
 
         return filename  # Return saved file path
 
     except Exception as e:
         return f"Error in TTS conversion: {str(e)}"
 
-# Full Pipeline: Get News, Analyze Sentiment, Generate Speech
+# ✅ Main Execution: Get News, Analyze Sentiment, Generate Speech
 if __name__ == "__main__":
     company = "Tesla"
     print(f"\n🔍 Fetching news for: {company}\n")
@@ -124,8 +92,8 @@ if __name__ == "__main__":
         sentiment_report = comparative_analysis(news_data)
         print("\n📊 Sentiment Analysis Report:\n", sentiment_report)
 
-        # Ask user for language preference
+        # ✅ Ask for Language Choice
         language_choice = input("Enter 'hi' for Hindi or 'en' for English TTS: ").strip().lower()
         speech_output = text_to_speech(str(sentiment_report), lang=language_choice)
         print(f"\n🔊 Speech saved at: {speech_output}")
-        os.system(f"start {speech_output}")  # Play the audio file (Windows)
+        os.system(f"start {speech_output}")  # ✅ Play the audio file (Windows)
