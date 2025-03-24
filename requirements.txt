@@ -1,0 +1,8 @@
+streamlit
+yfinance
+yahoo_fin
+pandas
+matplotlib
+pyttsx3
+gtts
+nltk
